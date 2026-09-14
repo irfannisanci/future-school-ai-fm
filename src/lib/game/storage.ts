@@ -1,6 +1,7 @@
 import type { SessionState } from "./types";
 
-const STORAGE_KEY = "future-school-ai-session-v1";
+// Bump when the guided flow changes so an older saved step cannot mask a new UI.
+const STORAGE_KEY = "future-school-ai-session-v2";
 
 export function saveSession(state: SessionState): void {
   if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
