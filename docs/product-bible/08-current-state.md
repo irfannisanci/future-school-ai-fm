@@ -1,27 +1,34 @@
 # Current State
 
-**Durum:** PRE-CODE / Sprint 0'a hazır
+**Durum:** MVP IMPLEMENTED / PILOT READY
 
-## Var olan
-- Product vision
-- Product principles
-- users & learning goals
-- core game loop
-- ilk oyun matematiği
-- AI behavior contract
-- event card taslağı
-- roadmap
-- UX ekran haritası
-- teknik mimari başlangıç kararları
-- gizlilik/test/deployment ilkeleri
+## Tamamlanan
 
-## Henüz yok
-- uygulama repository iskeleti
-- gerçek wireframe çizimleri
-- çalışan grid
-- skor implementasyonu
-- AI entegrasyonu
-- export/kiosk
+- Next.js + React + TypeScript uygulama temeli
+- responsive takım girişi ve görev akışı
+- 10×10 click-to-place kampüs tasarımcısı
+- taşıma, döndürme, silme ve undo
+- deterministik alan, bütçe, kural ve beşli skor motoru
+- ilk tasarım snapshot ve canlı 2040 event modifier
+- yapılandırılabilir AI bilim danışmanı ve otomatik fallback
+- önce/sonra karşılaştırma ve zorunlu takım gerekçesi
+- A3 yazdır/PDF ve PNG sergi çıktısı
+- fullscreen, localStorage ve hızlı reset
+- GitHub Actions: lint, typecheck, test, production build
+
+## Doğrulama
+
+CI run 34880959240: SUCCESS.
+- ESLint: passed
+- TypeScript: passed
+- Vitest: 2 dosya / 5 test passed
+- Next.js production build: passed
 
 ## Sonraki eylem
-Claude Code repository'yi inceleyip Product Foundation için ilk sprint planını `docs/sprints/` altında oluşturmalı, gerekiyorsa eksik kararları işaretlemeli ve ardından yalnızca o sprint kapsamını uygulamalı.
+
+R6 Pilot Hardening:
+1. P0 öğretmen değerlendirmesi
+2. P1 6–10 öğrenci mini testi
+3. P2 sınıf testi
+4. P3 spor salonu ve yazıcı provası
+5. bulgulara göre skor dengesi, metin ve erişilebilirlik iyileştirmesi

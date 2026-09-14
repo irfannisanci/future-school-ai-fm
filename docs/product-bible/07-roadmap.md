@@ -1,25 +1,24 @@
 # Roadmap
 
-## R0 — Product Foundation
-Ürün kararları, UX akışı, oyun matematiği ve teknik çerçeve doğrulansın.
+## R0 — Product Foundation — DONE
+Ürün kararları, UX akışı, oyun matematiği ve teknik çerçeve repository'de.
 
-## R1 — Grid MVP
-10×10 grid üzerinde bileşen ekleme/taşıma/silme; alan ve yüzde hesapları.
+## R1 — Grid MVP — DONE
+10×10 grid; bileşen ekleme, taşıma, döndürme, silme; alan/yüzde.
 
-## R2 — Rules & Scoring
-Bütçe, zorunlu koşullar, 5 gösterge ve ilk tasarım snapshot'ı.
+## R2 — Rules & Scoring — DONE
+Bütçe, zorunlu koşullar, beş gösterge ve ilk tasarım snapshot.
 
-## R3 — AI Science Advisor
-Yapılandırılmış giriş, Sokratik geri bildirim ve fallback mekanizması.
+## R3 — AI Science Advisor — DONE
+Yapılandırılmış server-side entegrasyon, Sokratik geri bildirim ve fallback.
 
-## R4 — Event Cards & Redesign
-2040 olay kartları, yeniden tasarım ve önce/sonra delta.
+## R4 — Event Cards & Redesign — DONE
+Beş olay kartı, deterministik modifier, redesign ve önce/sonra delta.
 
-## R5 — Exhibition Mode
-A3/PNG/PDF çıktı, kiosk/reset, anonim öğretmen özeti, offline-friendly akış.
+## R5 — Exhibition Mode — DONE
+A3/PDF, PNG, fullscreen, reset, local-first ve offline core akış.
 
-## R6 — Pilot Hardening
-Öğretmen testi, mini öğrenci testi, sınıf testi ve spor salonu provası sonrası hata/UX düzeltmeleri.
+## R6 — Pilot Hardening — NEXT
+Öğretmen testi, mini öğrenci testi, sınıf testi ve spor salonu provası sonrası skor/UX/erişilebilirlik iyileştirmeleri.
 
-### Kural
-Roadmap sprint numarası değildir. Claude Code her roadmap sonucunu bir veya daha fazla sprintte gerçekleştirebilir ve sprint planını kendisi oluşturur.
+> Roadmap sprint numarası değildir. Tamamlanma kanıtı docs/sprints ve GitHub Actions kayıtlarındadır.
