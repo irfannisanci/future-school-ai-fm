@@ -1,0 +1,78 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { COMPONENT_LIST, COMPONENTS } from "@/lib/game/catalog";
+import { EVENTS, getEvent } from "@/lib/game/events";
+import { canPlace, createSnapshot, evaluateDesign } from "@/lib/game/engine";
+import { fallbackQuestions } from "@/lib/game/fallback";
+import { clearSession, loadSession, saveSession } from "@/lib/game/storage";
+import { downloadExhibitionPng } from "@/lib/export/png";
+import type { ComponentType, EventId, GradeBand, PlacedItem, SessionState } from "@/lib/game/types";
+
+const fresh:SessionState={teamAlias:"",gradeBand:"6",step:0,items:[],advisorQuestions:[],advisorResponses:[],reflection:""};
+const stepNames=["Takım","Görev","Tasarla","Analiz","AI danışman","2040 olayı","Yeniden tasarla","Karşılaştır","Savun","Sergile"];
+const scoreLabels={climate:"İklim",water:"Su",energy:"Enerji",health:"Sağlık",circularity:"Doğa"};
+
+export default function GameApp(){
+  const [state,setState]=useState<SessionState>(fresh);
+  const [selected,setSelected]=useState<ComponentType>("green");
+  const [rotated,setRotated]=useState(false);
+  const [active,setActive]=useState<string>();
+  const [history,setHistory]=useState<PlacedItem[][]>([]);
+  const [notice,setNotice]=useState("");
+  const [advisorMode,setAdvisorMode]=useState<"ai"|"fallback">("fallback");
+  const [hydrated,setHydrated]=useState(false);
+  const evaluation=useMemo(()=>evaluateDesign(state.items,state.step>=6?state.eventId:undefined),[state.items,state.eventId,state.step]);
+
+  useEffect(()=>{const saved=loadSession();if(saved)setState(saved);setHydrated(true);},[]);
+  useEffect(()=>{if(hydrated)saveSession(state);},[state,hydrated]);
+
+  const patch=(value:Partial<SessionState>)=>setState(current=>({...current,...value}));
+  const next=(step:number)=>patch({step});
+  const pushHistory=()=>setHistory(h=>[...h.slice(-19),state.items.map(i=>({...i}))]);
+  const cellClick=(x:number,y:number)=>{
+    if(active){const old=state.items.find(i=>i.id===active);if(!old)return;const moved={...old,x,y};if(!canPlace(state.items,moved,active)){setNotice("Bu alana taşınamaz.");return;}pushHistory();patch({items:state.items.map(i=>i.id===active?moved:i)});setActive(undefined);setNotice("Bileşen taşındı.");return;}
+    const d=COMPONENTS[selected], width=rotated?d.height:d.width,height=rotated?d.width:d.height;
+    const candidate:PlacedItem={id:crypto.randomUUID(),type:selected,x,y,width,height,rotated};
+    if(!canPlace(state.items,candidate)){setNotice("Burada yeterli boş alan yok.");return;}
+    if(evaluateDesign([...state.items,candidate]).budgetUsed>100){setNotice("Bu bileşen bütçeyi aşar.");return;}
+    pushHistory();patch({items:[...state.items,candidate]});setNotice(d.label+" eklendi.");
+  };
+  const remove=()=>{if(!active)return;pushHistory();patch({items:state.items.filter(i=>i.id!==active)});setActive(undefined);};
+  const rotate=()=>{if(!active){setRotated(v=>!v);return;}const old=state.items.find(i=>i.id===active);if(!old)return;const changed={...old,width:old.height,height:old.width,rotated:!old.rotated};if(canPlace(state.items,changed,active)){pushHistory();patch({items:state.items.map(i=>i.id===active?changed:i)});}else setNotice("Bu konumda döndürülemez.");};
+  const undo=()=>{const previous=history.at(-1);if(!previous)return;patch({items:previous});setHistory(h=>h.slice(0,-1));setActive(undefined);};
+
+  const lock=async()=>{if(!evaluation.isValid){setNotice("Önce görev koşullarını tamamla.");return;}const snapshot=createSnapshot(state.items);const local=fallbackQuestions(snapshot.evaluation,state.gradeBand);patch({initialDesign:snapshot,advisorQuestions:local,advisorResponses:local.map(()=>""),step:4});setAdvisorMode("fallback");
+    try{const r=await fetch("/api/advisor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({gradeBand:state.gradeBand,evaluation:snapshot.evaluation})});if(r.ok){const data=await r.json();if(data.questions?.length>=2){patch({advisorQuestions:data.questions,advisorResponses:data.questions.map(()=>""),step:4});setAdvisorMode("ai");}}}catch{}};
+  const drawEvent=()=>{const event=EVENTS[Math.floor(Math.random()*EVENTS.length)];patch({eventId:event.id,step:5});};
+  const answer=(index:number,value:string)=>patch({advisorResponses:state.advisorResponses.map((v,i)=>i===index?value:v)});
+  const reset=()=>{clearSession();setState(fresh);setHistory([]);setActive(undefined);setNotice("");};
+  if(!hydrated)return <main className="loading">Kampüs hazırlanıyor…</main>;
+
+  return <div className="app">
+    <header className="topbar"><div className="brand"><span className="brandmark">FS</span><div><b>FutureSchool AI</b><small>2040 Kampüs Laboratuvarı</small></div></div>{state.step>0&&<><div className="progress" aria-label={"Adım "+state.step+" / 9"}><span style={{width:(state.step/9*100)+"%"}}/></div><button className="ghost" onClick={()=>document.documentElement.requestFullscreen?.()}>Tam ekran</button></>}</header>
+    <main className={state.step===2||state.step===6?"workspace":"stage"}>
+      {state.step===0&&<section className="welcome"><span className="eyebrow">BBGNIGHT STEM DENEYİMİ</span><h1>2040’ın okulunu<br/><em>siz tasarlayın.</em></h1><p>Alanı ölçün, bütçeyi yönetin, iklim koşullarına karşı takımınızın en iyi fikrini savunun.</p><div className="card form"><label>Takım rumuzu<input maxLength={30} value={state.teamAlias} onChange={e=>patch({teamAlias:e.target.value})} placeholder="Örn. Gelecek Mimarları"/></label><label>Sınıf düzeyi<select value={state.gradeBand} onChange={e=>patch({gradeBand:e.target.value as GradeBand})}>{["5","6","7","8"].map(g=><option key={g} value={g}>{g}. sınıf</option>)}</select></label><button className="primary" disabled={!state.teamAlias.trim()} onClick={()=>next(1)}>Göreve başla <span>→</span></button></div><p className="privacy">İsim, e-posta veya kişisel bilgi istemiyoruz.</p></section>}
+      {state.step===1&&<section className="brief"><span className="eyebrow">GÖREV DOSYASI • İSTANBUL 2040</span><h1>500 öğrenci için dayanıklı bir kampüs kur.</h1><div className="briefgrid"><Fact n="10.000" unit="m²" text="Toplam kampüs alanı"/><Fact n="100" unit="puan" text="Tasarım bütçesi"/><Fact n="10×10" unit="grid" text="Her hücre 100 m²"/></div><div className="mission card"><h2>Başarı koşulları</h2><p>✓ En az 1 eğitim binası</p><p>✓ En az 1 spor salonu</p><p>✓ Çakışmayan, bütçeyi aşmayan yerleşim</p><p>✓ İklim, su, enerji, sağlık ve doğa arasında denge</p></div><button className="primary" onClick={()=>next(2)}>Görevi anladık →</button></section>}
+      {(state.step===2||state.step===6)&&<Designer redesign={state.step===6} state={state} evaluation={evaluation} selected={selected} rotated={rotated} active={active} notice={notice} onSelect={t=>{setSelected(t);setActive(undefined)}} onCell={cellClick} onActive={setActive} onRotate={rotate} onRemove={remove} onUndo={undo} onNext={()=>next(state.step===2?3:7)}/>}
+      {state.step===3&&<section><Heading k="İLK TASARIM ANALİZİ" title="Kararlarınız sayılara dönüştü."/><Metrics evaluation={evaluation}/>{evaluation.errors.length>0&&<div className="errors">{evaluation.errors.map(e=><p key={e}>! {e}</p>)}</div>}<div className="actions"><button className="secondary" onClick={()=>next(2)}>← Tasarıma dön</button><button className="primary" disabled={!evaluation.isValid} onClick={lock}>İlk tasarımı kilitle →</button></div><p className="hint">Kilitledikten sonra ilk tasarım kanıt olarak korunur.</p></section>}
+      {state.step===4&&<section><Heading k="AI BİLİM DANIŞMANI" title="Cevabı vermeyeceğim. İyi sorular soracağım."/><div className="advisor card"><div className="advisorhead"><span className="orb">AI</span><span>{advisorMode==="ai"?"AI danışman aktif":"Çevrimdışı kural tabanlı danışman aktif"}</span></div>{state.advisorQuestions.map((q,i)=><label key={q}><b>{i+1}. {q}</b><textarea value={state.advisorResponses[i]||""} onChange={e=>answer(i,e.target.value)} placeholder="Takım olarak düşüncenizi yazın…"/></label>)}</div><button className="primary" disabled={state.advisorResponses.some(v=>!v.trim())} onClick={drawEvent}>2040 olay kartını çek →</button></section>}
+      {state.step===5&&<EventScreen id={state.eventId!} onNext={()=>next(6)}/>}
+      {state.step===7&&state.initialDesign&&<section><Heading k="ÖNCE / SONRA" title="Tasarımınız koşula nasıl uyum sağladı?"/><div className="compare"><MiniPlan title="İlk tasarım" items={state.initialDesign.placedItems}/><MiniPlan title="2040 tasarımı" items={state.items}/></div><Delta before={state.initialDesign.evaluation.scores} after={evaluation.scores}/><div className="actions"><button className="secondary" onClick={()=>next(6)}>← Yeniden düzenle</button><button className="primary" onClick={()=>next(8)}>Savunmaya geç →</button></div></section>}
+      {state.step===8&&<section><Heading k="TAKIM SAVUNMASI" title="En önemli değişikliğiniz neydi?"/><div className="card reflection"><p>“Şu alanı veya kararı değiştirdik; çünkü…”</p><textarea value={state.reflection} onChange={e=>patch({reflection:e.target.value})} minLength={20} placeholder="Kararınızı sayı ve gerekçeyle anlatın."/><small>{state.reflection.trim().length}/20 minimum karakter</small></div><button className="primary" disabled={state.reflection.trim().length<20} onClick={()=>next(9)}>Sergi çıktısını hazırla →</button></section>}
+      {state.step===9&&state.initialDesign&&<section className="final"><Heading k="SERGİYE HAZIR" title={state.teamAlias+" takımının 2040 kampüsü"}/><div className="printarea"><div className="compare"><MiniPlan title="İlk tasarım" items={state.initialDesign.placedItems}/><MiniPlan title="2040 tasarımı" items={state.items}/></div><Metrics evaluation={evaluation}/><blockquote>{state.reflection}</blockquote><p>{getEvent(state.eventId)?.title}</p></div><div className="actions no-print"><button className="secondary" onClick={()=>window.print()}>PDF / Yazdır</button><button className="primary" onClick={()=>downloadExhibitionPng({team:state.teamAlias,initial:state.initialDesign!.placedItems,final:state.items,evaluation,reflection:state.reflection,eventId:state.eventId})}>PNG indir</button><button className="ghost" onClick={reset}>Yeni takım</button></div></section>}
+    </main>
+    {state.step>0&&<footer><span>{state.teamAlias}</span><span>{stepNames[state.step]}</span><span>Adım {state.step}/9</span></footer>}
+  </div>;
+}
+
+function Designer(p:{redesign:boolean;state:SessionState;evaluation:ReturnType<typeof evaluateDesign>;selected:ComponentType;rotated:boolean;active?:string;notice:string;onSelect:(t:ComponentType)=>void;onCell:(x:number,y:number)=>void;onActive:(id:string)=>void;onRotate:()=>void;onRemove:()=>void;onUndo:()=>void;onNext:()=>void}){
+ return <><aside className="palette"><span className="eyebrow">{p.redesign?"2040 UYARLAMASI":"BİLEŞENLER"}</span><h2>{p.redesign?getEvent(p.state.eventId)?.title:"Kampüs paleti"}</h2><p className="tiny">Bileşen seç, sonra gride dokun. Yerleşene dokunarak taşı.</p><div className="paletteitems">{COMPONENT_LIST.map(c=><button key={c.type} className={p.selected===c.type&&!p.active?"component selected": "component"} onClick={()=>p.onSelect(c.type)}><i style={{background:c.color}}/><span><b>{c.label}</b><small>{c.width}×{c.height} • {c.cost} puan</small></span></button>)}</div></aside><section className="canvas"><div className="canvashead"><div><span className="eyebrow">{p.redesign?"OLAY SONRASI":"İLK TASARIM"}</span><h1>10×10 kampüs alanı</h1></div><div className="tools"><button onClick={p.onUndo}>↶ Geri al</button><button onClick={p.onRotate}>↻ Döndür</button><button disabled={!p.active} onClick={p.onRemove}>Sil</button></div></div><CampusGrid items={p.state.items} active={p.active} onCell={p.onCell} onActive={p.onActive}/><p className="notice">{p.notice|| (p.active?"Yeni konuma dokun veya araçlardan Sil'i seç.":"Her hücre 100 m²")}</p></section><aside className="metricsaside"><Metrics evaluation={p.evaluation}/>{p.evaluation.errors.length>0&&<div className="errors compact">{p.evaluation.errors.map(e=><p key={e}>{e}</p>)}</div>}<button className="primary" onClick={p.onNext}>{p.redesign?"Karşılaştır →":"Analiz et →"}</button></aside></>;
+}
+function CampusGrid({items,active,onCell,onActive}:{items:PlacedItem[];active?:string;onCell:(x:number,y:number)=>void;onActive:(id:string)=>void}){return <div className="grid" role="grid" aria-label="10 çarpı 10 kampüs gridi">{Array.from({length:100},(_,i)=><button key={i} className="cell" onClick={()=>onCell(i%10,Math.floor(i/10))} aria-label={"Hücre "+(i%10+1)+","+(Math.floor(i/10)+1)}/>) }{items.map(i=><button key={i.id} className={"placed "+(active===i.id?"active":"")} style={{gridColumn:(i.x+1)+"/span "+i.width,gridRow:(i.y+1)+"/span "+i.height,background:COMPONENTS[i.type].color}} onClick={()=>onActive(i.id)}><b>{COMPONENTS[i.type].shortLabel}</b><small>{i.width*i.height*100} m²</small></button>)}</div>}
+function Metrics({evaluation:e}:{evaluation:ReturnType<typeof evaluateDesign>}){return <div className="metrics"><div className="total"><span>Oyun puanı</span><b>{e.scores.total}</b><small>/100</small></div><div className="budget"><span>Bütçe</span><b>{e.budgetUsed}/100</b><progress max="100" value={e.budgetUsed}/></div><div className="area"><span>Kullanılan alan</span><b>{e.areas.usedM2.toLocaleString("tr-TR")} m² • %{e.areas.usedPercent}</b></div>{(Object.keys(scoreLabels) as Array<keyof typeof scoreLabels>).map(k=><div className="score" key={k}><span>{scoreLabels[k]}</span><progress max="100" value={e.scores[k]}/><b>{e.scores[k]}</b></div>)}</div>}
+function MiniPlan({title,items}:{title:string;items:PlacedItem[]}){return <div className="miniplan"><h3>{title}</h3><div className="grid mini">{Array.from({length:100},(_,i)=><i className="cell" key={i}/>)}{items.map(i=><span key={i.id} className="placed" style={{gridColumn:(i.x+1)+"/span "+i.width,gridRow:(i.y+1)+"/span "+i.height,background:COMPONENTS[i.type].color}} title={COMPONENTS[i.type].label}/>)}</div></div>}
+function Delta({before,after}:{before:ReturnType<typeof evaluateDesign>["scores"];after:ReturnType<typeof evaluateDesign>["scores"]}){return <div className="deltas">{(Object.keys(scoreLabels) as Array<keyof typeof scoreLabels>).map(k=><div key={k}><span>{scoreLabels[k]}</span><b>{before[k]} → {after[k]}</b><em className={after[k]>=before[k]?"up":"down"}>{after[k]-before[k]>=0?"+":""}{after[k]-before[k]}</em></div>)}</div>}
+function EventScreen({id,onNext}:{id:EventId;onNext:()=>void}){const e=getEvent(id)!;return <section className="event"><span className="eventicon">{e.icon}</span><span className="eyebrow">2040 OLAY KARTI</span><h1>{e.title}</h1><p>{e.description}</p><div className="card prompt">Şimdi ilk tasarımını bu yeni koşula göre yeniden düşün. Her şeyi değiştirmek zorunda değilsin; kararını gerekçelendir.</div><button className="primary" onClick={onNext}>Koşulu kabul et →</button></section>}
+function Heading({k,title}:{k:string;title:string}){return <div className="heading"><span className="eyebrow">{k}</span><h1>{title}</h1></div>}
+function Fact({n,unit,text}:{n:string;unit:string;text:string}){return <div><b>{n}</b><em>{unit}</em><span>{text}</span></div>}
