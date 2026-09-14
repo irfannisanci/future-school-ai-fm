@@ -24,7 +24,7 @@ export default function GameApp(){
   const [hydrated,setHydrated]=useState(false);
   const evaluation=useMemo(()=>evaluateDesign(state.items,state.step>=6?state.eventId:undefined),[state.items,state.eventId,state.step]);
 
-  useEffect(()=>{const saved=loadSession();if(saved)setState(saved);setHydrated(true);},[]);
+  useEffect(()=>{queueMicrotask(()=>{const saved=loadSession();if(saved)setState(saved);setHydrated(true);});},[]);
   useEffect(()=>{if(hydrated)saveSession(state);},[state,hydrated]);
 
   const patch=(value:Partial<SessionState>)=>setState(current=>({...current,...value}));
