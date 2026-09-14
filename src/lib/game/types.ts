@@ -72,6 +72,7 @@ export type DesignSnapshot = {
 
 export type SessionState = {
   teamAlias: string;
+  memberAliases?: string[];
   gradeBand: GradeBand;
   step: number;
   items: PlacedItem[];
