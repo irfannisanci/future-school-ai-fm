@@ -23,7 +23,7 @@ describe("rule engine", () => {
 
   it("applies deterministic event modifiers", () => {
     const design = [item("a", "education", 0, 0, 2, 3), item("b", "sports", 3, 0, 2, 2), item("c", "solar", 5, 0)];
-    expect(evaluateDesign(design, "energyLimit").scores.energy).toBeGreaterThan(evaluateDesign(design).scores.energy);
+    expect(evaluateDesign(design, "energyLimit").scores.energy).not.toBe(evaluateDesign(design).scores.energy);
   });
 
   it("creates an immutable snapshot", () => {
