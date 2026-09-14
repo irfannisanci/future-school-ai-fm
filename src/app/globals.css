@@ -1,0 +1,4 @@
+:root { color-scheme: light; font-family: Arial, sans-serif; background: #f6f8f7; color: #17324d; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { min-height: 100vh; display: grid; place-content: center; padding: 2rem; }
