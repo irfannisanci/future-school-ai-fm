@@ -1,14 +1,26 @@
-import type { DesignEvaluation, EventId, GradeBand } from "./types";
+import type { ChallengeId, DesignEvaluation, EventId, GradeBand } from "./types";
 import { getEvent } from "./events";
+import { evaluateChallengeBalance } from "./balance";
+import type { PlacedItem } from "./types";
 
-export function fallbackQuestions(evaluation: DesignEvaluation, grade: GradeBand, eventId?: EventId): string[] {
+export function fallbackQuestions(evaluation: DesignEvaluation, grade: GradeBand, eventId?: EventId, challengeId?: ChallengeId, items: PlacedItem[] = []): string[] {
   const event = getEvent(eventId);
+  if (challengeId) {
+    const balance = evaluateChallengeBalance(items, evaluation, challengeId);
+    const main = balance.criteria.find((item) => item.kind === "main")!;
+    const guardrail = balance.criteria.find((item) => item.kind === "guardrail" && !item.met) ?? balance.criteria.find((item) => item.kind === "guardrail")!;
+    return [
+      `${main.label} değerin ${main.value}. Hedefe ulaşmak için hangi kararını değiştirebilirsin?`,
+      `${guardrail.label} değerin ${guardrail.value}. Ana hedefi geliştirirken bunu nasıl korursun?`,
+      balance.status === "side_effects" ? "Ana hedef tamamlandı; hangi denge koşulu hâlâ eksik?" : "İki farklı çözüm yolundan hangisi bütçeyi daha iyi korur?",
+    ];
+  }
   const questions = [
-    "Kampüsün %" + evaluation.areas.usedPercent + " kadarı kullanılıyor. Boş alanı korumak ile yeni bir bileşen eklemek arasında nasıl karar verdiniz?",
-    "En düşük göstergeniz " + lowestLabel(evaluation.scores) + ". Onu artırırken hangi güçlü göstergenizden vazgeçmek zorunda kalabilirsiniz?"
+    "Kampüsün %" + evaluation.areas.usedPercent + " kadarı kullanılıyor. Kalan alanı nasıl kullanmak istersin?",
+    "En düşük göstergen " + lowestLabel(evaluation.scores) + ". Onu artırmak için neyi değiştirebilirsin?"
   ];
-  if (event) questions.push(event.title + " koşulunda " + event.focus + " puanınızı etkileyen hangi tasarım kararını değiştirmek isterdiniz?");
-  else if (Number(grade) >= 7) questions.push("Bütçenin %" + evaluation.budgetUsed + " kadarını kullandınız. Bir birim maliyet başına en çok yarar sağlayan kararınız hangisi?");
+  if (event) questions.push(event.title + " sırasında hangi tasarım kararın daha çok işe yarar?");
+  else if (Number(grade) >= 7) questions.push("100 bütçe puanının " + evaluation.budgetUsed + " puanını kullandın. En yararlı seçimin hangisi?");
   return questions.slice(0, 3);
 }
 

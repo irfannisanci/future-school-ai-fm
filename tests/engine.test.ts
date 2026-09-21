@@ -18,7 +18,28 @@ describe("rule engine", () => {
     expect(result.isValid).toBe(true);
     expect(result.areas.usedM2).toBe(1100);
     expect(result.areas.usedPercent).toBe(11);
+    expect(result.areas.openPercent).toBe(90);
     expect(result.budgetUsed).toBe(32);
+  });
+
+  it("keeps open-space components open and excludes building upgrades from land use", () => {
+    const base = [item("a", "education", 0, 0, 2, 3), item("b", "sports", 3, 0, 2, 2)];
+    const withOpenFeatures = [...base, item("c", "green", 5, 0), item("d", "shade", 6, 0), item("e", "rainwater", 7, 0)];
+    const withUpgrade = [...withOpenFeatures, item("f", "insulation", 8, 0)];
+    const openResult = evaluateDesign(withOpenFeatures);
+    const upgradeResult = evaluateDesign(withUpgrade);
+
+    expect(openResult.areas.openPercent).toBe(90);
+    expect(upgradeResult.areas.openPercent).toBe(90);
+    expect(upgradeResult.areas.usedCells).toBe(openResult.areas.usedCells);
+  });
+
+  it("counts ground infrastructure against usable open space", () => {
+    const design = [item("a", "education", 0, 0, 2, 3), item("b", "sports", 3, 0, 2, 2), item("c", "solar", 5, 0)];
+    const result = evaluateDesign(design);
+    expect(result.areas.builtPercent).toBe(10);
+    expect(result.areas.infrastructurePercent).toBe(1);
+    expect(result.areas.openPercent).toBe(89);
   });
 
   it("applies deterministic event modifiers", () => {

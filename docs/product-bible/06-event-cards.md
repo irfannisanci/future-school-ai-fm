@@ -10,7 +10,7 @@ Kullanılabilir su %30 azaldı. Su yönetimi kararların nasıl etkilenir?
 Kısa sürede yoğun yağış. Su tutma ve açık alan kararları yeniden düşünülür.
 
 ## Enerji Kısıtı
-Şebekeden alınabilen enerji %25 azaldı. Enerji kararları daha kritik olur.
+Güneş üretimi %30, şebekeden alınabilen enerji %25 azalır. Tasarruf ve depolama kararları daha kritik olur.
 
 ## Aktif Ulaşım Haftası
 Özel araç girişini azaltma hedefi geldi. Bisiklet/aktif ulaşım önemi artar.

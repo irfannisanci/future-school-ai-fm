@@ -1,4 +1,5 @@
-import { BUILT_TYPES, COMPONENTS, GREEN_TYPES } from "./catalog";
+import { BUILT_TYPES, COMPONENTS, GREEN_TYPES, footprintCells } from "./catalog";
+import { getEnergyBalance } from "./energy";
 import { BUDGET_LIMIT, CELL_AREA_M2, GRID_SIZE, type DesignEvaluation, type DesignSnapshot, type EventId, type PlacedItem, type ScoreKey, type ScoreSet } from "./types";
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
@@ -29,16 +30,21 @@ function eventAdjustments(items: PlacedItem[], eventId?: EventId): Partial<Recor
     case "heatwave": return { climate: green * 4 + shade * 8 - (green + shade < 4 ? 15 : 0) };
     case "drought": return { water: rain * 10 + green * 2 - (rain === 0 ? 20 : 0) };
     case "heavyRain": return { water: rain * 12 + green * 3 - (rain < 2 ? 15 : 0) };
-    case "energyLimit": return { energy: solar * 8 - (solar < 2 ? 20 : 0) };
+    case "energyLimit": return {};
     case "activeTransport": return { health: bike * 10 - (bike === 0 ? 20 : 0) };
+    case "healthyLiving": return { health: green * 3 + shade * 4 + bike * 5 - (green + shade + bike < 3 ? 15 : 0) };
+    case "carbonLimit": return { climate: green * 3 + shade * 3 + solar * 6 + bike * 4 - (solar + bike === 0 ? 15 : 0) };
   }
 }
 
 export function evaluateDesign(items: PlacedItem[], eventId?: EventId): DesignEvaluation {
-  const usedCells = items.reduce((sum, item) => sum + cells(item), 0);
+  const usedCells = items.reduce((sum, item) => sum + footprintCells(item), 0);
   const greenCells = items.filter((item) => GREEN_TYPES.includes(item.type)).reduce((sum, item) => sum + cells(item), 0);
   const builtCells = items.filter((item) => BUILT_TYPES.includes(item.type)).reduce((sum, item) => sum + cells(item), 0);
+  const infrastructureCells = items.filter((item) => COMPONENTS[item.type].landUse === "infrastructure").reduce((sum, item) => sum + cells(item), 0);
+  const openCells = GRID_SIZE * GRID_SIZE - builtCells - infrastructureCells;
   const budgetUsed = items.reduce((sum, item) => sum + COMPONENTS[item.type].cost, 0);
+  const energyBalance = getEnergyBalance(items, eventId);
   const raw: Record<ScoreKey, number> = { climate: 0, water: 0, energy: 0, health: 0, circularity: 0 };
 
   items.forEach((item) => {
@@ -46,7 +52,8 @@ export function evaluateDesign(items: PlacedItem[], eventId?: EventId): DesignEv
     (Object.keys(raw) as ScoreKey[]).forEach((key) => { raw[key] += contribution[key]; });
   });
 
-  raw.climate += Math.max(0, 100 - usedCells) * 0.12;
+  raw.climate += Math.max(0, openCells) * 0.12;
+  raw.energy = energyBalance.coveragePercent;
   const adjustment = eventAdjustments(items, eventId);
   (Object.keys(raw) as ScoreKey[]).forEach((key) => { raw[key] += adjustment[key] ?? 0; });
 
@@ -78,9 +85,12 @@ export function evaluateDesign(items: PlacedItem[], eventId?: EventId): DesignEv
       greenPercent: greenCells,
       builtCells,
       builtPercent: builtCells,
-      openCells: GRID_SIZE * GRID_SIZE - usedCells,
-      openPercent: GRID_SIZE * GRID_SIZE - usedCells
+      infrastructureCells,
+      infrastructurePercent: infrastructureCells,
+      openCells,
+      openPercent: openCells
     },
+    energyBalance,
     scores,
     errors,
     isValid: errors.length === 0
