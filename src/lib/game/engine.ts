@@ -1,9 +1,9 @@
 import { BUILT_TYPES, COMPONENTS, GREEN_TYPES, footprintCells } from "./catalog";
 import { getEnergyBalance } from "./energy";
+import { getEvent, getEventImpact } from "./events";
 import { BUDGET_LIMIT, CELL_AREA_M2, GRID_SIZE, type DesignEvaluation, type DesignSnapshot, type EventId, type PlacedItem, type ScoreKey, type ScoreSet } from "./types";
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
-const count = (items: PlacedItem[], type: PlacedItem["type"]) => items.filter((item) => item.type === type).length;
 const cells = (item: PlacedItem) => item.width * item.height;
 
 export function overlaps(a: PlacedItem, b: PlacedItem): boolean {
@@ -16,25 +16,6 @@ export function isInBounds(item: PlacedItem): boolean {
 
 export function canPlace(items: PlacedItem[], candidate: PlacedItem, ignoreId?: string): boolean {
   return isInBounds(candidate) && !items.some((item) => item.id !== ignoreId && overlaps(item, candidate));
-}
-
-function eventAdjustments(items: PlacedItem[], eventId?: EventId): Partial<Record<ScoreKey, number>> {
-  if (!eventId) return {};
-  const green = count(items, "green");
-  const shade = count(items, "shade");
-  const rain = count(items, "rainwater");
-  const solar = count(items, "solar");
-  const bike = count(items, "bike");
-
-  switch (eventId) {
-    case "heatwave": return { climate: green * 4 + shade * 8 - (green + shade < 4 ? 15 : 0) };
-    case "drought": return { water: rain * 10 + green * 2 - (rain === 0 ? 20 : 0) };
-    case "heavyRain": return { water: rain * 12 + green * 3 - (rain < 2 ? 15 : 0) };
-    case "energyLimit": return {};
-    case "activeTransport": return { health: bike * 10 - (bike === 0 ? 20 : 0) };
-    case "healthyLiving": return { health: green * 3 + shade * 4 + bike * 5 - (green + shade + bike < 3 ? 15 : 0) };
-    case "carbonLimit": return { climate: green * 3 + shade * 3 + solar * 6 + bike * 4 - (solar + bike === 0 ? 15 : 0) };
-  }
 }
 
 export function evaluateDesign(items: PlacedItem[], eventId?: EventId): DesignEvaluation {
@@ -54,8 +35,6 @@ export function evaluateDesign(items: PlacedItem[], eventId?: EventId): DesignEv
 
   raw.climate += Math.max(0, openCells) * 0.12;
   raw.energy = energyBalance.coveragePercent;
-  const adjustment = eventAdjustments(items, eventId);
-  (Object.keys(raw) as ScoreKey[]).forEach((key) => { raw[key] += adjustment[key] ?? 0; });
 
   const scores = {
     climate: clamp(raw.climate),
@@ -65,13 +44,15 @@ export function evaluateDesign(items: PlacedItem[], eventId?: EventId): DesignEv
     circularity: clamp(raw.circularity),
     total: 0
   } satisfies ScoreSet;
+  const event = getEvent(eventId);
+  if (event) scores[event.focus] = clamp(scores[event.focus] - getEventImpact(items, eventId).loss);
   scores.total = Math.round(scores.climate * 0.25 + scores.water * 0.2 + scores.energy * 0.2 + scores.health * 0.2 + scores.circularity * 0.15);
 
   const errors: string[] = [];
   if (!items.some((item) => item.type === "education")) errors.push("En az bir eğitim binası eklemelisin.");
   if (!items.some((item) => item.type === "sports")) errors.push("En az bir spor salonu eklemelisin.");
   if (budgetUsed > BUDGET_LIMIT) errors.push("Bütçe sınırı aşıldı.");
-  if (items.some((item) => !isInBounds(item))) errors.push("Grid dışında bileşen var.");
+  if (items.some((item) => !isInBounds(item))) errors.push("Kampüs alanının dışına taşan bir bileşen var.");
   if (items.some((item, index) => items.slice(index + 1).some((other) => overlaps(item, other)))) errors.push("Bileşenler üst üste geliyor.");
 
   return {

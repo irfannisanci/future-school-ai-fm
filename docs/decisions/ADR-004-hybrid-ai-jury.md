@@ -15,3 +15,6 @@ LLM'nin kesir, ondalık ve yüzde hesabı deterministik motor tarafından doğru
 
 ## Consequences
 Öğrenci hem ölçülebilir tasarım performansını hem de karar gerekçesini görür. AI değerlendirmesi açıklanabilir olur ve tek başına nihai otorite değildir. Ek API gecikmesi ve maliyeti oluşur; buna karşılık şema doğrulaması, zaman aşımı ve fallback davranışı gerekir.
+
+## Amendment — Sprint 05
+Teknik/matematik bölümünün 50 puanı `src/lib/game/scoring.ts` içinde şöyle dağılır: geçerli yerleşim 5, doğrulanmış oran 15, denge koşulları 20, beş gösterge toplamı 10. Denge puanı `ana hedef ilerlemesi × (12 + 8 × koruma koşulları ortalaması)` olarak hesaplanır; bütçe ölçütü yerleşimde zaten zorunlu olduğu için puana katılmaz. Önceki dağılımda 30 puan ilerleyebilen her takıma garantiydi; yeni dağılımda garanti pay 20'dir. Oran hesabı AI'ya ulaşılamadığında deterministik yedekle (`fallbackMathResult`) doğrulanır.

@@ -8,24 +8,25 @@ export function fallbackQuestions(evaluation: DesignEvaluation, grade: GradeBand
   if (challengeId) {
     const balance = evaluateChallengeBalance(items, evaluation, challengeId);
     const main = balance.criteria.find((item) => item.kind === "main")!;
+    const shown = (item: typeof main) => item.unit === "%" ? `%${item.value}` : `${item.value} puan`;
     const guardrail = balance.criteria.find((item) => item.kind === "guardrail" && !item.met) ?? balance.criteria.find((item) => item.kind === "guardrail")!;
     return [
-      `${main.label} değerin ${main.value}. Hedefe ulaşmak için hangi kararını değiştirebilirsin?`,
-      `${guardrail.label} değerin ${guardrail.value}. Ana hedefi geliştirirken bunu nasıl korursun?`,
-      balance.status === "side_effects" ? "Ana hedef tamamlandı; hangi denge koşulu hâlâ eksik?" : "İki farklı çözüm yolundan hangisi bütçeyi daha iyi korur?",
+      `${main.label} şu an ${shown(main)}. Hedefe ulaşmak için neyi değiştirebilirsin?`,
+      `${guardrail.label} şu an ${shown(guardrail)}. Ana hedefe çalışırken bunu nasıl korursun?`,
+      balance.status === "side_effects" ? "Ana hedef tamam. Hangi ek koşul hâlâ eksik?" : "Aklındaki iki çözümden hangisi daha az bütçe harcar?",
     ];
   }
   const questions = [
-    "Kampüsün %" + evaluation.areas.usedPercent + " kadarı kullanılıyor. Kalan alanı nasıl kullanmak istersin?",
-    "En düşük göstergen " + lowestLabel(evaluation.scores) + ". Onu artırmak için neyi değiştirebilirsin?"
+    "Kampüsün %" + evaluation.areas.usedPercent + " kadarı dolu. Boş kalan yeri nasıl kullanmak istersin?",
+    "En düşük puanın " + lowestLabel(evaluation.scores) + ". Onu artırmak için neyi değiştirebilirsin?"
   ];
-  if (event) questions.push(event.title + " sırasında hangi tasarım kararın daha çok işe yarar?");
-  else if (Number(grade) >= 7) questions.push("100 bütçe puanının " + evaluation.budgetUsed + " puanını kullandın. En yararlı seçimin hangisi?");
+  if (event) questions.push(event.title + " olayında tasarımındaki hangi bileşen en çok işe yarar?");
+  else if (Number(grade) >= 7) questions.push("100 bütçe puanının " + evaluation.budgetUsed + " puanını harcadın. En yararlı seçimin hangisi?");
   return questions.slice(0, 3);
 }
 
 function lowestLabel(scores: DesignEvaluation["scores"]): string {
-  const labels = { climate: "iklim dayanıklılığı", water: "su yönetimi", energy: "enerji", health: "sağlık ve hareket", circularity: "döngüsellik ve doğa" };
+  const labels = { climate: "iklim", water: "su", energy: "enerji", health: "sağlık", circularity: "doğa" };
   const keys = Object.keys(labels) as Array<keyof typeof labels>;
   return labels[keys.reduce((lowest, key) => scores[key] < scores[lowest] ? key : lowest, keys[0])];
 }

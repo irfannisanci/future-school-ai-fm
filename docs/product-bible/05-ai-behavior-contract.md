@@ -18,12 +18,21 @@ AI'ya serbest veri yığını değil yapılandırılmış özet gönderilir:
 
 ## Çıktı
 - oran için sadeleştirilmiş kesir, ondalık gösterim, yüzde ve kısa açıklama
-- 2–3 kısa soru
-- en az bir sayısal metriğe atıf
-- kararın yararını ve oluşturabileceği sorunu sorgulayan en az bir soru
-- yaşa uygun Türkçe
+- jüri raporunda en az bir sayısal metriğe atıf
+- 6. sınıf öğrencisinin ilk okuyuşta anlayacağı Türkçe: cümle başına en fazla 15 kelime, tek fikir, "sen" hitabı, her sayının neyi saydığı yazılı; yasak kelime listesi (gösterge, olaysız, kapasite, kısıt, döngüsellik, emilim, şok, koruma koşulu…) sistem isteminde (`docs/ux/05-language-guide.md`, Sprint 08)
 - problemin çözülme düzeyi: çözüldü / kısmen çözüldü / henüz çözülmedi
 - 50 puanlık açıklanabilir jüri rubriği ve kullanılan kanıtlar
+
+## Öğrenciye sorulan sorular
+Ekrandaki sorular LLM'den değil deterministik soru bankasından gelir (`src/lib/game/diagnostics.ts`). Her takıma üç kısa yorum sorusu sorulur:
+1. seçilen sorun hakkında genel bir soru (ör. “Okulda enerji tasarrufu için neler yapılabilir?”),
+2. takımın kendi tasarımına bağlı tek bir soru (eksik kalan hedef için “ne ekleyebilirsin?”, her koşul sağlandıysa “en çok işe yarayan bileşen hangisi, neden?”),
+3. seçilen sorun hakkında ikinci bir genel soru.
+
+Sorular 6. sınıf düzeyindedir, hesap gerektirmez, tek doğru cevabı yoktur. Sayısal çalışma oran laboratuvarında ve bulgu kartlarında kalır.
+
+## Yeniden tasarım karşılaştırması
+Redesign aşamasında `before` verisi, ilk tasarımın aynı olay koşulu altındaki değerleridir (ADR-005). AI olayın etkisini öğrencinin kararının sonucu gibi sunmaz.
 
 ## Puanlama sınırı
 - Teknik/matematik puanı (50) deterministik TypeScript motorunda hesaplanır.
@@ -43,4 +52,6 @@ AI'ya serbest veri yığını değil yapılandırılmış özet gönderilir:
 - öğrencinin pay ve payda girişini sessizce değiştirmemeli
 
 ## Fallback
-AI servisi çalışmazsa kural tabanlı soru bankası devreye girer ve oyun devam eder. Kesir, yüzde, bütçe ve teknik puan kontrolleri deterministik motorla doğrulanır; hatalı bir LLM matematik sonucu kabul edilmez.
+Model cevap yazmadan önce düşünür; düşünme tokenları `max_output_tokens` sınırına dahildir. Sınır dar olursa JSON yarıda kesilir ve oyun yedek moda düşer. Bu yüzden jüri 3.000, matematik 1.500 token sınırıyla çağrılır; yarıda kesilen cevap konsola nedeniyle yazılır. OpenAI çağrısının zaman aşımı 30 sn, en fazla 1 yeniden deneme yapılır.
+
+AI servisi çalışmazsa oyun devam eder: sorular zaten kural tabanlıdır, oran laboratuvarı deterministik yedek hesapla (`fallbackMathResult`) ilerler, jüri bölümünde motorun doğruladığı bulgular gösterilir. Kesir, yüzde, bütçe ve teknik puan kontrolleri deterministik motorla doğrulanır; hatalı bir LLM matematik sonucu kabul edilmez.

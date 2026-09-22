@@ -55,15 +55,31 @@ function gcd(a: number, b: number): number {
   return x || 1;
 }
 
+function calculateRatio(input: Pick<MathTutorInput, "numerator" | "denominator">) {
+  const divisor = gcd(input.numerator, input.denominator);
+  const decimal = Number((input.numerator / input.denominator).toFixed(4));
+  return { simplifiedNumerator: input.numerator / divisor, simplifiedDenominator: input.denominator / divisor, decimal, percentage: Number((decimal * 100).toFixed(1)) };
+}
+
+// AI'ya ulaşılamadığında oran laboratuvarı bu deterministik sonuçla devam eder; ipucu doğru cevabı vermez.
+export function fallbackMathResult(input: MathTutorInput): MathResult {
+  const ratio = calculateRatio(input);
+  const simplified = ratio.simplifiedNumerator === input.numerator
+    ? `${input.numerator}/${input.denominator} kesri zaten en sade hâlinde.`
+    : `${input.numerator}/${input.denominator} kesri sadeleşince ${ratio.simplifiedNumerator}/${ratio.simplifiedDenominator} olur.`;
+  return {
+    matchesDesign: input.numerator === input.expectedNumerator && input.denominator === input.expectedDenominator,
+    ...ratio,
+    explanation: `${simplified} ${input.numerator} ÷ ${input.denominator} = ${ratio.decimal}; 100 ile çarpınca %${ratio.percentage} eder.`,
+    hint: `Kartlara yeniden bak: pay, “${input.numeratorLabel}” sayısıdır. Payı ve paydayı ayrı ayrı yeniden hesapla.`,
+  };
+}
+
 export function parseMathResponse(value: string, input: MathTutorInput): MathResult | null {
   try {
     const parsed: unknown = JSON.parse(value);
     if (!isRecord(parsed)) return null;
-    const divisor = gcd(input.numerator, input.denominator);
-    const simplifiedNumerator = input.numerator / divisor;
-    const simplifiedDenominator = input.denominator / divisor;
-    const decimal = Number((input.numerator / input.denominator).toFixed(4));
-    const percentage = Number((decimal * 100).toFixed(1));
+    const { simplifiedNumerator, simplifiedDenominator, decimal, percentage } = calculateRatio(input);
     if (parsed.simplifiedNumerator !== simplifiedNumerator || parsed.simplifiedDenominator !== simplifiedDenominator) return null;
     if (typeof parsed.decimal !== "number" || Math.abs(parsed.decimal - decimal) > 0.001) return null;
     if (typeof parsed.percentage !== "number" || Math.abs(parsed.percentage - percentage) > 0.1) return null;

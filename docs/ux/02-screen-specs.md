@@ -1,5 +1,7 @@
 # Screen Specs
 
+Bütün ekran metinleri 6. sınıf öğrenci dili kılavuzuna uyar: `05-language-guide.md`.
+
 ## 01 Welcome
 Takım rumuzu, sınıf düzeyi, Başla. Öğrenci adı zorunlu değil.
 

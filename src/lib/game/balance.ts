@@ -1,19 +1,30 @@
-import type { ChallengeBalance, ChallengeCriterion, ChallengeId, DesignEvaluation, PlacedItem } from "./types";
+import { EVENT_RESOURCE, getResourceBalance, RESOURCES } from "./resources";
+import type { ChallengeBalance, ChallengeCriterion, ChallengeId, DesignEvaluation, EventId, PlacedItem, ResourceId } from "./types";
 
 type BalanceEvaluation = Pick<DesignEvaluation, "areas" | "budgetUsed" | "energyBalance" | "scores">;
 
 export const CHALLENGE_MISSIONS: Record<ChallengeId, { title: string; question: string }> = {
-  heat: { title: "Serinlik, su ve açık alan hedeflerini birlikte karşıla.", question: "Serinlik hedefinin yanında su ve açık alan koşulları da sağlandı mı?" },
-  drought: { title: "Su, yeşil alan ve iklim hedeflerini birlikte karşıla.", question: "Su hedefinin yanında yeşil alan ve iklim koşulları da sağlandı mı?" },
-  heavyRain: { title: "Yağmur, açık alan ve yeşil alan hedeflerini birlikte karşıla.", question: "Yağmur hedefinin yanında açık ve yeşil alan koşulları da sağlandı mı?" },
-  energy: { title: "Enerji, yeşil alan ve sağlık hedeflerini birlikte karşıla.", question: "Enerji hedefinin yanında yeşil alan ve sağlık koşulları da sağlandı mı?" },
-  activeTransport: { title: "Ulaşım, sağlık ve iklim hedeflerini birlikte karşıla.", question: "Ulaşım hedefinin yanında sağlık ve iklim koşulları da sağlandı mı?" },
-  healthyLiving: { title: "Sağlık, açık alan ve yeşil alan hedeflerini birlikte karşıla.", question: "Sağlık hedefinin yanında açık ve yeşil alan koşulları da sağlandı mı?" },
-  carbon: { title: "Karbon, temiz enerji ve sağlık hedeflerini birlikte karşıla.", question: "Karbon hedefinin yanında enerji ve sağlık koşulları da sağlandı mı?" },
+  heat: { title: "Okulu serinlet; suyu ve enerjiyi de unutma.", question: "Okul serinledi mi? Su ve enerji de yetiyor mu?" },
+  drought: { title: "Suyu karşıla; yeşil alanı ve serinliği de unutma.", question: "Su yetiyor mu? Yeşil alan ve serinlik de yeterli mi?" },
+  heavyRain: { title: "Yağmuru tut; suyu ve yeşil alanı da unutma.", question: "Yağmur tutuluyor mu? Su ve yeşil alan da yeterli mi?" },
+  energy: { title: "Temiz enerji üret; yeşil alanı ve sağlığı da unutma.", question: "Enerji yetiyor mu? Yeşil alan ve sağlık da yeterli mi?" },
+  activeTransport: { title: "Yürüyen ve bisikletli öğrenciye yer aç; yağmuru ve serinliği de unutma.", question: "Herkese yer var mı? Yağmur tutuluyor ve okul serin kalıyor mu?" },
+  healthyLiving: { title: "Hareket alanı aç; suyu ve enerjiyi de unutma.", question: "Herkese hareket alanı var mı? Su ve enerji de yetiyor mu?" },
+  carbon: { title: "Karbonu azalt; enerjiyi ve sağlığı da unutma.", question: "Karbon yeterince azaldı mı? Enerji ve sağlık da yeterli mi?" },
 };
 
-const count = (items: PlacedItem[], type: PlacedItem["type"]) => items.filter((item) => item.type === type).length;
-const cells = (items: PlacedItem[], types: PlacedItem["type"][]) => items.filter((item) => types.includes(item.type)).reduce((sum, item) => sum + item.width * item.height, 0);
+type Rule = { kind: "resource"; id: ResourceId; target: number } | { kind: "green" | "health"; target: number };
+
+// Her sorunda ana hedef, ana kaynak oranının en az %70 olmasıdır. Koruma koşulları, ana stratejinin kötüleştirdiği başka bir dengeyi izler.
+const RULES: Record<ChallengeId, [Rule, Rule, Rule]> = {
+  heat: [{ kind: "resource", id: "cooling", target: 70 }, { kind: "resource", id: "water", target: 50 }, { kind: "resource", id: "energy", target: 30 }],
+  drought: [{ kind: "resource", id: "water", target: 70 }, { kind: "green", target: 12 }, { kind: "resource", id: "cooling", target: 50 }],
+  heavyRain: [{ kind: "resource", id: "rain", target: 70 }, { kind: "resource", id: "water", target: 40 }, { kind: "green", target: 12 }],
+  energy: [{ kind: "resource", id: "energy", target: 70 }, { kind: "green", target: 15 }, { kind: "health", target: 35 }],
+  activeTransport: [{ kind: "resource", id: "transport", target: 70 }, { kind: "resource", id: "rain", target: 50 }, { kind: "resource", id: "cooling", target: 50 }],
+  healthyLiving: [{ kind: "resource", id: "activity", target: 70 }, { kind: "resource", id: "water", target: 50 }, { kind: "resource", id: "energy", target: 30 }],
+  carbon: [{ kind: "resource", id: "carbon", target: 70 }, { kind: "resource", id: "energy", target: 50 }, { kind: "health", target: 40 }],
+};
 
 function criterion(id: string, label: string, value: number, target: number, unit: ChallengeCriterion["unit"], kind: ChallengeCriterion["kind"], direction: ChallengeCriterion["direction"] = "atLeast"): ChallengeCriterion {
   const rounded = Math.round(value);
@@ -22,69 +33,41 @@ function criterion(id: string, label: string, value: number, target: number, uni
   return { id, label, value: rounded, target, unit, kind, direction, met, progress };
 }
 
-export function evaluateChallengeBalance(items: PlacedItem[], evaluation: BalanceEvaluation, challengeId: ChallengeId): ChallengeBalance {
-  const { areas, budgetUsed, energyBalance, scores } = evaluation;
-  const budget = criterion("budget", "Bütçe kullanımı", budgetUsed, 100, "puan", "budget", "atMost");
-  let criteria: ChallengeCriterion[];
+// 2040 olayının oranı görevin ölçütleri arasında değilse yeniden tasarımda ek koşul olarak izlenir.
+export const EVENT_CONDITION_TARGET = 50;
 
-  switch (challengeId) {
-    case "heat":
-      criteria = [
-        criterion("cooling", "İklim ve serinlik", scores.climate, 60, "puan", "main"),
-        criterion("water", "Su yönetimi", scores.water, 25, "puan", "guardrail"),
-        criterion("open", "Açık alan", areas.openPercent, 65, "%", "guardrail"), budget,
-      ];
-      break;
-    case "drought":
-      criteria = [
-        criterion("water", "Su yönetimi", scores.water, 60, "puan", "main"),
-        criterion("green", "Yeşil alan", areas.greenPercent, 12, "%", "guardrail"),
-        criterion("climate", "İklim dayanıklılığı", scores.climate, 40, "puan", "guardrail"), budget,
-      ];
-      break;
-    case "heavyRain":
-      criteria = [
-        criterion("rain", "Yağmur yönetimi", scores.water, 60, "puan", "main"),
-        criterion("open", "Açık alan", areas.openPercent, 65, "%", "guardrail"),
-        criterion("green", "Yeşil alan", areas.greenPercent, 12, "%", "guardrail"), budget,
-      ];
-      break;
-    case "energy":
-      criteria = [
-        criterion("coverage", "Enerji karşılama", energyBalance.coveragePercent, 70, "%", "main"),
-        criterion("green", "Yeşil alan", areas.greenPercent, 15, "%", "guardrail"),
-        criterion("health", "Sağlık ve hareket", scores.health, 35, "puan", "guardrail"), budget,
-      ];
-      break;
-    case "activeTransport": { 
-      const access = Math.min(100, count(items, "bike") * 20 + cells(items, ["shade"]) * 5 + cells(items, ["green", "garden"]) * 2);
-      criteria = [
-        criterion("access", "Aktif ulaşım erişimi", access, 60, "puan", "main"),
-        criterion("health", "Sağlık ve hareket", scores.health, 55, "puan", "guardrail"),
-        criterion("climate", "İklim dayanıklılığı", scores.climate, 40, "puan", "guardrail"), budget,
-      ];
-      break;
-    }
-    case "healthyLiving":
-      criteria = [
-        criterion("health", "Sağlık ve hareket", scores.health, 60, "puan", "main"),
-        criterion("open", "Açık alan", areas.openPercent, 65, "%", "guardrail"),
-        criterion("green", "Yeşil alan", areas.greenPercent, 12, "%", "guardrail"), budget,
-      ];
-      break;
-    case "carbon": { 
-      const activeTransport = Math.min(100, count(items, "bike") * 20);
-      const carbonProgress = scores.climate * 0.35 + Math.min(100, energyBalance.coveragePercent) * 0.3 + scores.circularity * 0.2 + activeTransport * 0.15;
-      criteria = [
-        criterion("carbon", "Karbon azaltma dengesi", carbonProgress, 60, "puan", "main"),
-        criterion("energy", "Temiz enerji karşılama", energyBalance.coveragePercent, 50, "%", "guardrail"),
-        criterion("health", "Sağlık ve hareket", scores.health, 40, "puan", "guardrail"), budget,
-      ];
-      break;
-    }
+function ruleCriterion(rule: Rule, kind: ChallengeCriterion["kind"], items: PlacedItem[], evaluation: BalanceEvaluation, eventId?: EventId): ChallengeCriterion {
+  if (rule.kind !== "resource") {
+    return rule.kind === "green"
+      ? criterion("green", "Yeşil alan", evaluation.areas.greenPercent, rule.target, "%", kind)
+      : criterion("health", "Sağlık puanı", evaluation.scores.health, rule.target, "puan", kind);
   }
+  // Enerji oranı değerlendirmeden gelir (olay koşulunu zaten içerir); diğer oranlar yerleşimden ve olaydan hesaplanır.
+  const value = rule.id === "energy" ? evaluation.energyBalance.coveragePercent : getResourceBalance(items, rule.id, eventId).coveragePercent;
+  return criterion(rule.id, RESOURCES[rule.id].title, value, rule.target, "%", kind);
+}
 
-  const mainMet = criteria.find((item) => item.kind === "main")?.met ?? false;
+// Olayın oranı görevin ölçütleri arasında değilse eklenecek 2040 koşulu (etiket ve hedef).
+export function eventCondition(challengeId: ChallengeId, eventId: EventId): { id: ResourceId; label: string; target: number } | undefined {
+  const id = EVENT_RESOURCE[eventId];
+  if (RULES[challengeId].some((rule) => rule.kind === "resource" && rule.id === id)) return undefined;
+  return { id, label: RESOURCES[id].title, target: EVENT_CONDITION_TARGET };
+}
+
+export function evaluateChallengeBalance(items: PlacedItem[], evaluation: BalanceEvaluation, challengeId: ChallengeId, eventId?: EventId): ChallengeBalance {
+  const rules = RULES[challengeId];
+  const [main, first, second] = rules;
+  const criteria = [
+    ruleCriterion(main, "main", items, evaluation, eventId),
+    ruleCriterion(first, "guardrail", items, evaluation, eventId),
+    ruleCriterion(second, "guardrail", items, evaluation, eventId),
+  ];
+  const eventResource = eventId ? EVENT_RESOURCE[eventId] : undefined;
+  if (eventResource && !rules.some((rule) => rule.kind === "resource" && rule.id === eventResource)) {
+    criteria.push(ruleCriterion({ kind: "resource", id: eventResource, target: EVENT_CONDITION_TARGET }, "event", items, evaluation, eventId));
+  }
+  criteria.push(criterion("budget", "Harcanan bütçe", evaluation.budgetUsed, 100, "puan", "budget", "atMost"));
+  const mainMet = criteria[0].met;
   const allMet = criteria.every((item) => item.met);
   const mission = CHALLENGE_MISSIONS[challengeId];
   return {
@@ -94,4 +77,17 @@ export function evaluateChallengeBalance(items: PlacedItem[], evaluation: Balanc
     question: mission.question,
     criteria,
   };
+}
+
+// Olay yüzünden düşen ölçütlerin olaydan önceki değerleri (aynı yerleşim, normal gün). Çubuktaki kırmızı parça buradan gelir.
+// "2040 koşulu" satırı normal günde listede olmadığı için kaynağın olaysız oranı kullanılır. Bütçe olaydan etkilenmez.
+export function criteriaBeforeEvent(items: PlacedItem[], challengeId: ChallengeId, eventId: EventId, normal: BalanceEvaluation, shocked: BalanceEvaluation): Record<string, number> {
+  const before = evaluateChallengeBalance(items, normal, challengeId).criteria;
+  const drops: Record<string, number> = {};
+  for (const criterion of evaluateChallengeBalance(items, shocked, challengeId, eventId).criteria) {
+    if (criterion.kind === "budget") continue;
+    const previous = before.find((item) => item.id === criterion.id)?.value ?? Math.round(getResourceBalance(items, criterion.id as ResourceId).coveragePercent);
+    if (previous > criterion.value) drops[criterion.id] = previous;
+  }
+  return drops;
 }

@@ -1,37 +1,39 @@
 import { evaluateChallengeBalance } from "./balance";
 import { getChallenge } from "./challenges";
-import type { ChallengeBalance, ChallengeCriterion, ChallengeId, DesignEvaluation, DesignFinding, PlacedItem } from "./types";
+import type { ChallengeBalance, ChallengeCriterion, ChallengeId, DesignEvaluation, DesignFinding, EventId, PlacedItem } from "./types";
 
-const criterionText = (criterion: ChallengeCriterion) => `${criterion.value}${criterion.unit === "%" ? "%" : " puan"}`;
-const targetText = (criterion: ChallengeCriterion) => `${criterion.target}${criterion.unit === "%" ? "%" : " puan"}`;
+const criterionText = (criterion: ChallengeCriterion) => criterion.unit === "%" ? `%${criterion.value}` : `${criterion.value} puan`;
+const targetText = (criterion: ChallengeCriterion) => `${criterion.direction === "atMost" ? "en fazla" : "en az"} ${criterion.unit === "%" ? `%${criterion.target}` : `${criterion.target} puan`}`;
 
 function criterionQuestion(criterion: ChallengeCriterion): string {
-  if (criterion.id === "green") return `Yeşil alanın ${criterionText(criterion)}. Hedefe ulaşmak için kaç kare daha eklemelisin?`;
-  if (criterion.id === "open") return `Açık alanın ${criterionText(criterion)}. Hedefi korumak için hangi yerleşimi değiştirebilirsin?`;
-  if (criterion.id === "coverage" || criterion.id === "energy") return `Enerji karşılama oranın ${criterionText(criterion)}. Üretimi artırmak mı, ihtiyacı azaltmak mı seçersin?`;
-  if (criterion.id === "budget") return `Bütçen hedefi aşıyor. Hangi bileşeni daha ekonomik bir çözümle değiştirebilirsin?`;
-  return `${criterion.label} değerin ${criterionText(criterion)}. ${targetText(criterion)} hedefine ulaşmak için neyi değiştirirsin?`;
+  if (criterion.id === "budget") return "Bütçeyi aşmamak için hangi bileşenden vazgeçebilirsin?";
+  return `Tasarımında “${criterion.label}” hedefin altında kaldı. Bunu artırmak için ne ekleyebilirsin?`;
 }
 
 function criterionFinding(criterion: ChallengeCriterion): DesignFinding {
   return {
     id: `criterion-${criterion.id}`,
     tone: "gap",
-    title: `${criterion.label} hedefin altında`,
-    detail: `${criterion.label} değeri ${criterionText(criterion)}; gereken değer en az ${targetText(criterion)}.`,
+    title: `${criterion.kind === "event" ? "2040 koşulu: " : ""}${criterion.label} ${criterion.direction === "atMost" ? "sınırı aştı" : "hedefin altında"}`,
+    detail: `Şu an ${criterionText(criterion)}. Hedef: ${targetText(criterion)}.`,
     question: criterionQuestion(criterion),
   };
 }
 
-function linkedGuardrailQuestion(balance: ChallengeBalance, subject: string): string {
-  const protectedCriterion = balance.criteria.find((criterion) => criterion.kind === "guardrail" && criterion.met);
-  if (!protectedCriterion) return `${subject} eklerken bütçe sınırını nasıl koruyabilirsin?`;
-  return `${subject} eklerken ${protectedCriterion.label.toLocaleLowerCase("tr-TR")} değerini ${targetText(protectedCriterion)} hedefinin üstünde nasıl tutabilirsin?`;
-}
+// Sorular 6. sınıf düzeyinde yorum sorularıdır: konu hakkında iki genel soru ve öğrencinin kendi tasarımına bağlı tek bir soru.
+const THEME_QUESTIONS: Record<ChallengeId, [string, string]> = {
+  heat: ["Sıcak bir günde okul bahçesini serin tutmak için neler yapılabilir?", "Ağaçlar ve gölgelikler öğrencilere nasıl yardımcı olur?"],
+  drought: ["Okulda suyu boşa harcamamak için neler yapılabilir?", "Biriktirilen yağmur suyu okulda nerelerde kullanılabilir?"],
+  heavyRain: ["Çok yağmur yağdığında okul bahçesinde su birikmemesi için neler yapılabilir?", "Toprak ve yeşil alanlar yağmur suyuna ne yapar?"],
+  energy: ["Okulda enerji tasarrufu için neler yapılabilir?", "Güneş panelleri okulun ne işine yarar?"],
+  activeTransport: ["Öğrencilerin okula yürüyerek veya bisikletle gelmesi için okulda neler olmalı?", "Okula hareket ederek gelmenin öğrencilere ne faydası olur?"],
+  healthyLiving: ["Sağlıklı yaşam için okulda neler yapılabilir?", "Teneffüste hareket edebilmek için okul bahçesinde neler olmalı?"],
+  carbon: ["Okulun havayı daha az kirletmesi için neler yapılabilir?", "Geri dönüşüm ve bisiklet kullanımı çevreye nasıl yardımcı olur?"],
+};
 
-export function analyzeDesign(items: PlacedItem[], evaluation: DesignEvaluation, challengeId: ChallengeId): { balance: ChallengeBalance; findings: DesignFinding[]; questions: string[] } {
+export function analyzeDesign(items: PlacedItem[], evaluation: DesignEvaluation, challengeId: ChallengeId, eventId?: EventId): { balance: ChallengeBalance; findings: DesignFinding[]; questions: string[] } {
   const challenge = getChallenge(challengeId)!;
-  const balance = evaluateChallengeBalance(items, evaluation, challengeId);
+  const balance = evaluateChallengeBalance(items, evaluation, challengeId, eventId);
   const main = balance.criteria.find((criterion) => criterion.kind === "main")!;
   const findings: DesignFinding[] = [];
 
@@ -40,8 +42,8 @@ export function analyzeDesign(items: PlacedItem[], evaluation: DesignEvaluation,
       id: "main-strength",
       tone: "strength",
       title: `${challenge.title} ana hedefi karşılandı`,
-      detail: `${main.label} değeri ${criterionText(main)} ve hedef ${targetText(main)}.`,
-      question: `${main.label} hedefini karşılamada hangi iki tasarım kararın birlikte işe yaradı?`,
+      detail: `Şu an ${criterionText(main)}. Hedef: ${targetText(main)}.`,
+      question: "Tasarımında en çok işe yarayan bileşen sence hangisi? Neden?",
     });
   } else {
     findings.push(criterionFinding(main));
@@ -50,12 +52,12 @@ export function analyzeDesign(items: PlacedItem[], evaluation: DesignEvaluation,
   balance.criteria.filter((criterion) => criterion.kind !== "main" && !criterion.met).forEach((criterion) => findings.push(criterionFinding(criterion)));
 
   const energy = evaluation.energyBalance;
-  if (energy.grossDemand > 0 && energy.renewableProduction === 0 && !findings.some((finding) => finding.id === "energy-zero" || finding.id === "criterion-coverage" || finding.id === "criterion-energy")) {
+  if (energy.grossDemand > 0 && energy.renewableProduction === 0 && !findings.some((finding) => finding.id === "energy-zero" || finding.id === "criterion-energy")) {
     findings.push({
       id: "energy-zero",
       tone: "gap",
-      title: "Enerji ihtiyacı var, üretim yok",
-      detail: `Okul ${energy.netDemand} oyun içi enerji birimi kullanıyor ve hiç enerji üretmiyor. Bu, seçtiğin çözümün oluşturduğu yeni bir sorun değil; kampüste henüz çözülmemiş başka bir ihtiyaçtır.`,
+      title: "Okul enerji harcıyor ama hiç üretmiyor",
+      detail: `Okul ${energy.netDemand} birim enerji harcıyor ve hiç enerji üretmiyor. Bu sorunu senin seçimin yaratmadı; okulda henüz çözülmemiş başka bir ihtiyaç.`,
       question: "Okulun enerji üretmesi için hangi bileşeni ekleyebilirsin?",
     });
   }
@@ -65,21 +67,15 @@ export function analyzeDesign(items: PlacedItem[], evaluation: DesignEvaluation,
     findings.push({
       id: "circularity-low",
       tone: "gap",
-      title: "Atık ve yeniden kullanım çözümü zayıf",
-      detail: `Doğa ve döngüsellik puanı ${evaluation.scores.circularity}; geri dönüşüm merkezi bulunmuyor.`,
+      title: "Atıklar yeniden kullanılmıyor",
+      detail: `Doğa puanın ${evaluation.scores.circularity}. Okulda geri dönüşüm merkezi yok.`,
       question: "Atıkları yeniden kullanmak için tasarıma hangi bileşeni ekleyebilirsin?",
     });
   }
 
-  const gaps = findings.filter((finding) => finding.tone === "gap");
-  const energyGap = gaps.find((finding) => finding.id === "energy-zero");
-  const questions: string[] = [];
-  if (energyGap && main.met) {
-    questions.push(energyGap.question, linkedGuardrailQuestion(balance, "Enerji çözümü"));
-  }
-  gaps.filter((finding) => finding.id !== energyGap?.id).forEach((finding) => { if (questions.length < 3) questions.push(finding.question); });
-  if (questions.length < 2) questions.push(main.met ? findings[0].question : linkedGuardrailQuestion(balance, "Yeni bir çözüm"));
-  if (questions.length < 2) questions.push(`Bütçenin ${evaluation.budgetUsed} puanını kullandın. Aynı hedefe daha az bütçeyle nasıl ulaşabilirsin?`);
+  const gap = main.met ? balance.criteria.find((criterion) => criterion.kind === "guardrail" && !criterion.met) : main;
+  const [themeQuestion, closingQuestion] = THEME_QUESTIONS[challengeId];
+  const designQuestion = gap ? criterionQuestion(gap) : "Tasarımında en çok işe yarayan bileşen sence hangisi? Neden?";
 
-  return { balance, findings, questions: [...new Set(questions)].slice(0, 3) };
+  return { balance, findings, questions: [themeQuestion, designQuestion, closingQuestion] };
 }

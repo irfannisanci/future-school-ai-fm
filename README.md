@@ -10,6 +10,7 @@ Sorun seç → Tasarla → Ölç → Oranı hesapla → AI jürisine sun → 204
 - yapı, açık alan, zemin altyapısı ve arazi kullanmayan bina iyileştirmelerini ayıran alan modeli
 - emojili yedi sürdürülebilirlik sorunu: aşırı sıcak, kuraklık, şiddetli yağış, enerji, aktif ulaşım, sağlıklı yaşam ve karbon azaltımı
 - her bileşenin çözdüğü sorunları ve oluşturabileceği riskleri gösteren karar kartları
+- 6. sınıf öğrencisinin ilk okuyuşta anlayacağı ekran ve AI metinleri (`docs/ux/05-language-guide.md`)
 - yedi sorunun tamamında ana hedef + iki koruma koşulu + bütçe sınırından oluşan denge modeli
 - ana hedef sağlanıp koruma koşulu bozulduğunda “çözüldü ama yan etkiler var” geri bildirimi
 - enerji görevinde üretim–ihtiyaç dengesi, yeşil alan/sağlık koşulları ve azalan panel verimi

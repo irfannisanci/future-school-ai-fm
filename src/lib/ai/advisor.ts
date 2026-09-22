@@ -1,5 +1,4 @@
 import { COMPONENTS } from "@/lib/game/catalog";
-import { evaluateChallengeBalance } from "@/lib/game/balance";
 import { analyzeDesign } from "@/lib/game/diagnostics";
 import { getChallenge } from "@/lib/game/challenges";
 import {
@@ -79,7 +78,7 @@ const eventIds: EventId[] = ["heatwave", "drought", "heavyRain", "energyLimit", 
 const componentTypes = Object.keys(COMPONENTS) as ComponentType[];
 const areaKeys: Array<keyof AreaMetrics> = ["usedCells", "usedM2", "usedPercent", "greenCells", "greenPercent", "builtCells", "builtPercent", "infrastructureCells", "infrastructurePercent", "openCells", "openPercent"];
 const scoreKeys: Array<keyof ScoreSet> = ["climate", "water", "energy", "health", "circularity", "total"];
-const energyKeys: Array<keyof EnergyBalance> = ["grossDemand", "savings", "netDemand", "renewableProduction", "coveragePercent", "solarCount", "reducedEfficiencyPanels", "gridEnergyNeeded"];
+const energyKeys: Array<keyof EnergyBalance> = ["grossDemand", "savings", "netDemand", "renewableProduction", "solarProduction", "windProduction", "coveragePercent", "solarCount", "reducedEfficiencyPanels", "gridEnergyNeeded"];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -137,13 +136,14 @@ export function parseAdvisorInput(value: unknown): AdvisorInput | null {
   if (value.phase === "redesign" && !before) return null;
 
   const safeEvaluation = { areas: current.areaMetrics, scores: current.fiveScores, energyBalance: current.energyBalance, budgetUsed: current.budgetUsed };
-  const diagnostic = analyzeDesign(safeItems, { ...safeEvaluation, budgetRemaining: BUDGET_LIMIT - current.budgetUsed, errors: [], isValid: true }, challenge.id);
+  const activeEvent = value.phase === "redesign" && eventCard !== null ? eventCard as EventId : undefined;
+  const diagnostic = analyzeDesign(safeItems, { ...safeEvaluation, budgetRemaining: BUDGET_LIMIT - current.budgetUsed, errors: [], isValid: true }, challenge.id, activeEvent);
 
   return {
     phase: value.phase,
     gradeBand: value.gradeBand as GradeBand,
     challenge: { id: challenge.id, title: challenge.title },
-    challengeBalance: evaluateChallengeBalance(safeItems, safeEvaluation, challenge.id),
+    challengeBalance: diagnostic.balance,
     designFindings: diagnostic.findings,
     groundedQuestions: diagnostic.questions,
     designIntent: value.designIntent.trim(),

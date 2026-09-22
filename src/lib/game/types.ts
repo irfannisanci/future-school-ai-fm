@@ -18,7 +18,10 @@ export type ComponentType =
   | "outdoorClass"
   | "insulation"
   | "daylight"
-  | "battery";
+  | "battery"
+  | "wind"
+  | "path"
+  | "greywater";
 
 export type EventId = "heatwave" | "drought" | "heavyRain" | "energyLimit" | "activeTransport" | "healthyLiving" | "carbonLimit";
 
@@ -35,7 +38,6 @@ export type ComponentDefinition = {
   landUse: "building" | "open" | "infrastructure" | "upgrade";
   required?: boolean;
   contributions: Contributions;
-  helps: ChallengeId[];
   effects: string[];
   risks: string[];
 };
@@ -71,10 +73,35 @@ export type EnergyBalance = {
   savings: number;
   netDemand: number;
   renewableProduction: number;
+  solarProduction: number;
+  windProduction: number;
   coveragePercent: number;
   solarCount: number;
   reducedEfficiencyPanels: number;
   gridEnergyNeeded: number;
+};
+
+export type ResourceId = "energy" | "water" | "rain" | "cooling" | "transport" | "activity" | "carbon";
+
+export type ResourceRow = {
+  key: string;
+  label: string;
+  detail: string;
+  calculation: string;
+  value: number;
+  role: "supply" | "demand" | "saving";
+  reason: string;
+};
+
+export type ResourceBalance = {
+  id: ResourceId;
+  supply: number;
+  grossDemand: number;
+  savings: number;
+  netDemand: number;
+  coveragePercent: number;
+  rows: ResourceRow[];
+  eventNote?: string;
 };
 
 export type ChallengeCriterion = {
@@ -84,7 +111,7 @@ export type ChallengeCriterion = {
   target: number;
   unit: "%" | "puan";
   direction: "atLeast" | "atMost";
-  kind: "main" | "guardrail" | "budget";
+  kind: "main" | "guardrail" | "event" | "budget";
   met: boolean;
   progress: number;
 };
@@ -153,6 +180,7 @@ export type SessionState = {
   teamAlias: string;
   gradeBand: GradeBand;
   step: number;
+  resumeStep?: number;
   challengeId?: ChallengeId;
   designIntent: string;
   items: PlacedItem[];

@@ -21,4 +21,11 @@ A3/PDF, PNG, fullscreen, reset, local-first ve offline core akış.
 ## R6 — Pilot Hardening — NEXT
 Öğretmen testi, mini öğrenci testi, sınıf testi ve spor salonu provası sonrası skor/UX/erişilebilirlik iyileştirmeleri.
 
+- Sprint 05 — olay kartları stres testi modeli, dürüst önce/sonra karşılaştırması, ayırt eden teknik puan, basit yorum soruları: DONE.
+- Sprint 06 — kaynak–ihtiyaç modeli: her görevde çok kaynaklı oran, bileşenlerin gerçek hayat bedelleri, rüzgâr türbini / yaya yolu / gri su arıtma: DONE.
+- Sprint 07 — olay zinciri: olay kendi oranını da bozar, 2040 koşulu, her ekranda ilk tasarım → olay → yeniden tasarım: DONE.
+- Sprint 08 — 6. sınıf dili: olay notları, tanımlar, bileşen kartları, bulgular ve AI metinleri sade dille; dil kılavuzu ve dil testi: DONE.
+- Sprint 09 — olay kaybı çubukta kırmızı: düşüş kadar kırmızı parça, 10 birimlik aralıklar, "kaç iken kaç oldu" ve "Neden?" satırı: DONE.
+- Komşuluk kuralları pilot sonrasında değerlendirilecek.
+
 > Roadmap sprint numarası değildir. Tamamlanma kanıtı docs/sprints ve GitHub Actions kayıtlarındadır.

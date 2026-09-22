@@ -1,6 +1,6 @@
 import type { SessionState } from "./types";
 
-const STORAGE_KEY = "future-school-ai-session-v4";
+const STORAGE_KEY = "future-school-ai-session-v6";
 
 export function saveSession(state: SessionState): void {
   if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));

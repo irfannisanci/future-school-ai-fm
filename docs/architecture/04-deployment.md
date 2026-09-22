@@ -5,7 +5,7 @@ Okul bilgisayarlarından HTTPS linki ile açılabilen, assetleri hafif, AI kapal
 
 ## Sergi kontrol listesi
 - Wi-Fi testi
-- AI servis timeout/fallback
+- AI servis timeout/fallback (OpenAI zaman aşımı 30 sn + 1 yeniden deneme; hosting seçilince istek süresi sınırı buna göre ayarlanmalı, ör. Next.js `maxDuration`)
 - kiosk fullscreen
 - yazıcı/PDF testi
 - 15 sn altında yeni takım reseti
